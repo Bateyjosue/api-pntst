@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "api-pntst"
+version = "1.0.0"
+description = "API Penetration Testing Tool — discovers routes & Swagger docs, runs OWASP Top-10 checks, and produces an HTML report."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Josue Batey" }]
+requires-python = ">=3.9"
+keywords = ["penetration-testing", "api-security", "owasp", "vulnerability-scanner", "security", "pentest"]
+dependencies = [
+    "click>=8.1",
+    "requests>=2.31",
+    "python-dotenv>=1.0",
+    "rich>=13.7",
+    "jinja2>=3.1",
+]
+
+[project.scripts]
+api-pntst = "api_pntst.cli:main"
+
+[project.urls]
+Repository = "https://github.com/Bateyjosue/api-pntst"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["api_pntst*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
