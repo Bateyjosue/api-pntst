@@ -3,6 +3,7 @@
 from rich.console import Console
 
 from api_pntst.scanners.sql_injection import sql_injection_scanner
+from api_pntst.scanners.nosql_injection import nosql_injection_scanner
 from api_pntst.scanners.xss import xss_scanner
 from api_pntst.scanners.security_headers import security_headers_scanner
 from api_pntst.scanners.cors import cors_scanner
@@ -19,6 +20,7 @@ _SCANNERS = [
     ("🔧  HTTP Methods", http_methods_scanner),
     ("🔐  Authentication", auth_scanner),
     ("💉  SQL Injection", sql_injection_scanner),
+    ("🍃  NoSQL Injection", nosql_injection_scanner),
     ("⚡  XSS", xss_scanner),
     ("🔍  Sensitive Data Exposure", sensitive_data_scanner),
     ("⏱   Rate Limiting", rate_limit_scanner),

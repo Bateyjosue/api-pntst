@@ -181,3 +181,101 @@ class TestXssScanner:
                 "extra_headers": {},
             })
         assert findings == []
+
+
+class TestNoSqlInjectionScanner:
+    _ctx_get = {
+        "endpoints": [{"method": "GET", "url": "http://test.local/users", "parameters": []}],
+        "timeout": 5,
+        "extra_headers": {},
+    }
+    _ctx_post = {
+        "endpoints": [{"method": "POST", "url": "http://test.local/login", "parameters": []}],
+        "timeout": 5,
+        "extra_headers": {},
+    }
+
+    def test_detects_mongodb_error_in_get_response(self):
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(
+                status=200,
+                text='MongoServerError: unknown operator: $ne',
+            )
+            findings = nosql_injection_scanner(self._ctx_get)
+        assert len(findings) >= 1
+        assert findings[0]["severity"] == "critical"
+        assert findings[0]["scanner"] == "NoSQL Injection"
+
+    def test_detects_mongodb_error_in_post_response(self):
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(
+                status=200,
+                text='MongoError: CastError: Cast to ObjectId failed for value',
+            )
+            findings = nosql_injection_scanner(self._ctx_post)
+        assert len(findings) >= 1
+        assert findings[0]["severity"] == "critical"
+
+    def test_detects_server_error_on_get_injection(self):
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(status=500, text="Internal Server Error")
+            findings = nosql_injection_scanner(self._ctx_get)
+        assert len(findings) >= 1
+        assert findings[0]["severity"] == "medium"
+
+    def test_detects_server_error_on_post_injection(self):
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(status=500, text="Internal Server Error")
+            findings = nosql_injection_scanner(self._ctx_post)
+        assert len(findings) >= 1
+        assert findings[0]["severity"] == "medium"
+
+    def test_no_finding_on_clean_get_response(self):
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(status=200, text='{"users": []}')
+            findings = nosql_injection_scanner(self._ctx_get)
+        assert findings == []
+
+    def test_no_finding_on_clean_post_response(self):
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(status=401, text='{"error": "Unauthorized"}')
+            findings = nosql_injection_scanner(self._ctx_post)
+        assert findings == []
+
+    def test_skips_unsupported_methods(self):
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        ctx = {
+            "endpoints": [{"method": "DELETE", "url": "http://test.local/users/1", "parameters": []}],
+            "timeout": 5,
+            "extra_headers": {},
+        }
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(status=200, text="MongoError: something")
+            findings = nosql_injection_scanner(ctx)
+        assert findings == []
+
+    def test_one_finding_per_endpoint(self):
+        """Even with multiple payloads matching, only one finding per endpoint is reported."""
+        from api_pntst.scanners.nosql_injection import nosql_injection_scanner
+
+        with patch("api_pntst.scanners.nosql_injection.http_request") as mock_req:
+            mock_req.return_value = _mock_response(
+                status=200,
+                text="MongoServerError: unknown operator",
+            )
+            findings = nosql_injection_scanner(self._ctx_get)
+        endpoints_hit = [f["endpoint"] for f in findings]
+        assert len(endpoints_hit) == len(set(endpoints_hit))
