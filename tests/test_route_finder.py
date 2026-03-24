@@ -88,7 +88,77 @@ router.delete('/products/:id', deleteProduct);
             assert "POST" in methods
             assert "DELETE" in methods
 
-    def test_returns_empty_for_missing_dir(self):
+    def test_finds_gin_route(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "main.go"), "w") as f:
+                f.write("""
+package main
+
+import "github.com/gin-gonic/gin"
+
+func main() {
+    r := gin.Default()
+    r.GET("/ping", func(c *gin.Context) {})
+    r.POST("/users", createUser)
+    r.DELETE("/users/:id", deleteUser)
+    r.Run()
+}
+""")
+            routes = find_routes(tmpdir)
+            methods = {r["method"] for r in routes}
+            paths = {r["path"] for r in routes}
+            assert "GET" in methods
+            assert "POST" in methods
+            assert "/ping" in paths
+            assert "/users" in paths
+
+    def test_finds_spring_route(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "UserController.java"), "w") as f:
+                f.write("""
+import org.springframework.web.bind.annotation.*;
+
+@RestController
+@RequestMapping("/api")
+public class UserController {
+
+    @GetMapping("/users")
+    public List<User> getUsers() { return null; }
+
+    @PostMapping("/users")
+    public User createUser(@RequestBody User user) { return null; }
+
+    @DeleteMapping("/users/{id}")
+    public void deleteUser(@PathVariable Long id) {}
+}
+""")
+            routes = find_routes(tmpdir)
+            methods = {r["method"] for r in routes}
+            paths = {r["path"] for r in routes}
+            assert "GET" in methods
+            assert "POST" in methods
+            assert "DELETE" in methods
+            assert "/users" in paths
+
+    def test_finds_ktor_route(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with open(os.path.join(tmpdir, "Application.kt"), "w") as f:
+                f.write("""
+fun Application.configureRouting() {
+    routing {
+        get("/health") { call.respondText("OK") }
+        post("/orders") { }
+        put("/orders/{id}") { }
+    }
+}
+""")
+            routes = find_routes(tmpdir)
+            methods = {r["method"] for r in routes}
+            paths = {r["path"] for r in routes}
+            assert "GET" in methods
+            assert "POST" in methods
+            assert "/health" in paths
+            assert "/orders" in paths
         routes = find_routes("/nonexistent/path/xyz")
         assert routes == []
 

@@ -23,6 +23,12 @@ _SWAGGER_PATHS = [
     "/api/swagger.json",
     "/api/docs",
     "/docs/openapi.json",
+    # Config directory paths
+    "/config/swagger.json",
+    "/config/openapi.json",
+    "/config/api-docs.json",
+    "/config/swagger.yaml",
+    "/config/openapi.yaml",
 ]
 
 _HTTP_METHODS = {"get", "post", "put", "patch", "delete", "head", "options"}
