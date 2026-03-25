@@ -10,6 +10,7 @@ from rich.text import Text
 from api_pntst.discovery.env_reader import read_env
 from api_pntst.discovery.route_finder import find_routes
 from api_pntst.discovery.swagger_client import fetch_swagger_routes
+from api_pntst.discovery.active_prober import probe_live_endpoints
 from api_pntst.scanners import run_all_scanners
 from api_pntst.reporters.terminal import print_terminal_report
 from api_pntst.reporters.html_reporter import generate_html_report
@@ -71,7 +72,30 @@ def run_scan(
     except Exception:
         pass
 
-    endpoints = _merge_endpoints(swagger_routes, code_routes, resolved_url)
+    # Active probing: when Swagger is unavailable (common for deployed APIs)
+    # fall back to probing a wordlist of well-known REST paths against the
+    # live server so remote-URL scans get useful coverage even without source.
+    probe_routes = []
+    if not swagger_routes:
+        if code_routes:
+            console.print(
+                "  [dim]↳ No Swagger/OpenAPI spec found — "
+                "tip: point [bold]--dir[/] at the project source for full coverage.[/]"
+            )
+        else:
+            console.print(
+                "  [dim]↳ No Swagger/OpenAPI spec found and no local source code — "
+                "running active endpoint probing against the live API…[/]"
+            )
+        try:
+            probe_routes = probe_live_endpoints(
+                resolved_url, timeout, extra_headers, verify_ssl,
+                max_workers=concurrency,
+            )
+        except Exception:
+            pass
+
+    endpoints = _merge_endpoints(swagger_routes, code_routes, probe_routes, resolved_url)
 
     if not endpoints:
         console.print(
@@ -79,10 +103,15 @@ def run_scan(
         )
         endpoints = [{"method": "GET", "path": "/", "url": resolved_url + "/", "source": "fallback"}]
     else:
+        parts = [
+            f"[bold]{len(swagger_routes)}[/] from Swagger",
+            f"[bold]{len(code_routes)}[/] from source code",
+        ]
+        if probe_routes:
+            parts.append(f"[bold]{len(probe_routes)}[/] from active probing")
         console.print(
             f"  [green]✓[/] Discovered [bold]{len(endpoints)}[/] endpoint(s) "
-            f"([bold]{len(swagger_routes)}[/] from Swagger, "
-            f"[bold]{len(code_routes)}[/] from source code)"
+            f"({', '.join(parts)})"
         )
 
     # ── 3. Run security scanners ─────────────────────────────────────────────
@@ -148,10 +177,10 @@ def _resolve_base_url(cli_url, env_vars):
     return None
 
 
-def _merge_endpoints(swagger_routes, code_routes, base_url):
+def _merge_endpoints(swagger_routes, code_routes, probe_routes, base_url):
     seen = set()
     result = []
-    for r in [*swagger_routes, *code_routes]:
+    for r in [*swagger_routes, *code_routes, *probe_routes]:
         key = f"{r['method']}:{r['path']}"
         if key in seen:
             continue

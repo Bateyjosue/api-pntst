@@ -10,19 +10,44 @@ import re
 from api_pntst.utils.http_client import http_get
 
 _SWAGGER_PATHS = [
+    # Generic OpenAPI / Swagger
     "/swagger.json",
-    "/swagger/v1/swagger.json",
-    "/api-docs",
-    "/api-docs.json",
+    "/swagger.yaml",
     "/openapi.json",
     "/openapi.yaml",
+    # Swagger UI default paths
+    "/api-docs",
+    "/api-docs.json",
+    "/api-docs.yaml",
+    # Versioned generic paths
     "/v1/swagger.json",
     "/v2/swagger.json",
     "/v3/swagger.json",
-    "/docs/swagger.json",
+    "/v1/openapi.json",
+    "/v2/openapi.json",
+    "/v3/openapi.json",
+    # Spring Boot (springdoc-openapi / springfox)
+    "/v2/api-docs",
+    "/v3/api-docs",
+    "/v3/api-docs.yaml",
+    "/api/v2/api-docs",
+    "/api/v3/api-docs",
+    # NestJS / common /api prefix
     "/api/swagger.json",
+    "/api/openapi.json",
+    "/api/openapi.yaml",
     "/api/docs",
+    "/api/swagger",
+    # /docs prefix (FastAPI default, Django Spectacular, etc.)
+    "/docs/swagger.json",
     "/docs/openapi.json",
+    "/docs/openapi.yaml",
+    # Hono, tRPC and other modern stacks
+    "/swagger/v1/swagger.json",
+    "/swagger/v2/swagger.json",
+    # Well-known
+    "/.well-known/openapi.json",
+    "/.well-known/openapi.yaml",
     # Config directory paths
     "/config/swagger.json",
     "/config/openapi.json",
