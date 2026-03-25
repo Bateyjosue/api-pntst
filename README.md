@@ -18,7 +18,7 @@ A Python CLI tool that **auto-discovers API routes and Swagger documentation**, 
 | ⏱ Rate Limiting | Burst testing on all endpoints (especially authentication routes) |
 
 **Route Discovery:**
-- Swagger/OpenAPI spec auto-detection (14 well-known paths)
+- Swagger/OpenAPI layered discovery (direct URL, well-known paths, Swagger UI parsing, local spec fallback)
 - Source code scanning: Flask, FastAPI, Django (Python) · Express, Fastify, NestJS, Koa (JS/TS)
 - `.env` file reading for `BASE_URL`, `PORT`, auth tokens, and more
 
@@ -50,6 +50,12 @@ api-pntst
 # Specify the target URL explicitly
 api-pntst --url http://localhost:3000
 
+# Interactive setup (choose options step-by-step)
+api-pntst --interactive
+
+# Use a direct Swagger/OpenAPI URL
+api-pntst --url https://api.example.com --swagger-url https://api.example.com/v3/api-docs
+
 # Scan with a custom auth header and save the report
 api-pntst --url https://api.example.com \
           --header "Authorization: Bearer <your-token>" \
@@ -66,6 +72,7 @@ api-pntst --url http://localhost:8000 --severity high
 | Flag | Default | Description |
 |---|---|---|
 | `-u / --url` | auto | Base URL of the target API |
+| `--swagger-url` | — | Direct URL to OpenAPI/Swagger spec (`json`/`yaml`) |
 | `-d / --dir` | `.` (cwd) | Project directory to scan for routes and .env |
 | `-o / --output` | `api-pntst-report.html` | HTML report output path |
 | `-t / --timeout` | `8` | HTTP request timeout in seconds |
@@ -73,6 +80,8 @@ api-pntst --url http://localhost:8000 --severity high
 | `--severity` | `info` | Minimum severity level for terminal output |
 | `--no-html` | — | Skip HTML report generation |
 | `--concurrency` | `5` | Concurrent scan threads |
+| `--discovery-mode` | `hybrid` | Endpoint source: `hybrid`, `swagger`, or `code` |
+| `--interactive` | — | Interactive prompt to configure a scan |
 
 ---
 
@@ -84,6 +93,28 @@ When `--url` is not provided, `api-pntst` searches for the target URL in these `
 2. `PORT` + `HOST` → constructs `http://HOST:PORT`
 
 Auth tokens are also picked up automatically from `AUTH_TOKEN`, `API_TOKEN`, `ACCESS_TOKEN`, `BEARER_TOKEN`, `API_KEY`, or `X_API_KEY`.
+
+## Swagger/OpenAPI Discovery Strategy
+
+`api-pntst` now uses a layered approach for better coverage on deployed and local targets:
+
+1. Use `--swagger-url` if provided (best accuracy)
+2. Probe well-known OpenAPI paths on the target base URL
+3. Parse Swagger UI HTML and extract configured spec URLs
+4. Fall back to local OpenAPI files in `--dir` (for local source scans)
+5. If no spec is found, fall back to source route discovery (hybrid/code mode) and active endpoint probing
+
+For production/deployed scans, prefer:
+
+```bash
+api-pntst --url https://api.example.com --swagger-url https://api.example.com/v3/api-docs --discovery-mode hybrid
+```
+
+For local development scans, prefer:
+
+```bash
+api-pntst --url http://localhost:3000 --dir . --discovery-mode hybrid
+```
 
 ---
 

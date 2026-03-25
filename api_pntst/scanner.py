@@ -28,12 +28,15 @@ def run_scan(
     min_severity,
     concurrency,
     verify_ssl=True,
+    swagger_url=None,
+    discovery_mode="hybrid",
 ):
     """
     Orchestrate the full scan lifecycle.  Returns an integer exit code
     (1 when critical/high findings are present, 0 otherwise).
     """
     project_dir = str(Path(project_dir).resolve())
+    discovery_mode = (discovery_mode or "hybrid").lower()
 
     _print_banner()
 
@@ -61,22 +64,31 @@ def run_scan(
     console.print("\n[bold cyan]🗺  Discovering API endpoints…[/]")
 
     swagger_routes = []
-    try:
-        swagger_routes = fetch_swagger_routes(resolved_url, timeout, extra_headers, verify_ssl)
-    except Exception:
-        pass
+    if discovery_mode in ("hybrid", "swagger"):
+        try:
+            swagger_routes = fetch_swagger_routes(
+                resolved_url,
+                timeout,
+                extra_headers,
+                verify_ssl,
+                swagger_url=swagger_url,
+                project_dir=project_dir,
+            )
+        except Exception:
+            pass
 
     code_routes = []
-    try:
-        code_routes = find_routes(project_dir)
-    except Exception:
-        pass
+    if discovery_mode in ("hybrid", "code"):
+        try:
+            code_routes = find_routes(project_dir)
+        except Exception:
+            pass
 
     # Active probing: when Swagger is unavailable (common for deployed APIs)
     # fall back to probing a wordlist of well-known REST paths against the
     # live server so remote-URL scans get useful coverage even without source.
     probe_routes = []
-    if not swagger_routes:
+    if not swagger_routes and discovery_mode in ("hybrid", "swagger"):
         if code_routes:
             console.print(
                 "  [dim]↳ No Swagger/OpenAPI spec found — "
